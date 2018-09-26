@@ -30,11 +30,11 @@ namespace metron {
         public id: string;
         public gTypeName: string;
         public hasLoaded: boolean = false;
-        constructor(public model: string, public mID?: string) {
+        constructor(public model: string, public options?: metron.FormOptions) {
             super(model, FORM);
             var self = this;
-            self.id = mID;
-            self.gTypeName = (mID != null) ? `${mID}_${model}` : model;
+            self.id = (options != null) ? options.mID : null;
+            self.gTypeName = (options != null && options.mID != null) ? `${options.mID}_${model}` : model;
             metron.globals["forms"][self.gTypeName] = self;
             self._elem = (self.id != null) ? document.selectOne(`#${self.id}`) : document.selectOne(`[data-m-type='form'][data-m-model='${self.model}']`);
         }
@@ -183,7 +183,7 @@ namespace metron {
         public loadForm(parameters?: any, defaults?: any): void {
             var self = this;
             self.clearForm();
-            if (!self._elem.isHidden()) {
+            if (!self._elem.isHidden() && self.shouldRoute(self.options)) {
                 metron.routing.setRouteUrl(self._name, metron.web.querystringify(parameters), true);
             }
             if (defaults != null) {
@@ -203,8 +203,14 @@ namespace metron {
                         data = data[0];
                     }
                     for (let prop in data) {
-                        if (data.hasOwnProperty(prop) && data[prop] != null && document.selectOne(`#${self.model}_${prop}`) != null) {
-                            (<HTMLElement>document.selectOne(`#${self.model}_${prop}`)).val(<any>data[prop]);
+                        if (self.id == null) {
+                            if (data.hasOwnProperty(prop) && data[prop] != null && document.selectOne(`#${self.model}_${prop}`) != null) {
+                                (<HTMLElement>document.selectOne(`#${self.model}_${prop}`)).val(<any>data[prop]);
+                            }
+                        } else {
+                            if (data.hasOwnProperty(prop) && data[prop] != null && document.selectOne(`#${self.id} > fieldset > #${self.model}_${prop}`) != null) {
+                                (<HTMLElement>document.selectOne(`#${self.id} > fieldset > #${self.model}_${prop}`)).val(<any>data[prop]);
+                            }
                         }
                     }
                     if ((<any>self).loadForm_m_inject != null) {
