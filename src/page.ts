@@ -5,7 +5,7 @@ namespace metron {
             var actionName = (prefix != null) ? `${prefix}_${action}` : action;
             metron.globals.actions[actionName.lower()] = func;
         }
-        public static loadSelects(selects: NodeListOf<Element>, callback?: Function, reload: boolean = false): void {
+        public static loadSelects(selects: NodeListOf<Element>, callback?: Function, reload: boolean = false): Promise<any> {
             function populateSelects(el: Element, rl: boolean): Promise<any> {
                 let rli: boolean = rl;
                 let node: HTMLElement = <HTMLElement>el;
@@ -29,10 +29,10 @@ namespace metron {
                 });
             }
             var promises: Array<Promise<any>> = [];
-            selects.each(function (indx: number, el: Element) {
+            selects.each((indx: number, el: Element) => {
                 promises.push(populateSelects(el, reload));
             });
-            Promise.all(promises).then(() => {
+            return Promise.all(promises).then(() => {
                 if (callback != null) {
                     callback();
                 }
