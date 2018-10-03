@@ -5,8 +5,8 @@ namespace metron {
             var actionName = (prefix != null) ? `${prefix}_${action}` : action;
             metron.globals.actions[actionName.lower()] = func;
         }
-        public static loadSelects(selects: NodeListOf<Element>, callback?: Function, reload: boolean = false): Promise<any> {
-            function populateSelects(el: Element, rl: boolean): Promise<any> {
+        public static loadSelects(selects: NodeListOf<Element>, callback?: Function, reload: boolean = false): void {
+            async function populateSelects(el: Element, rl: boolean): Promise<any> {
                 let rli: boolean = rl;
                 let node: HTMLElement = <HTMLElement>el;
                 let binding: string = el.attribute("data-m-binding");
@@ -14,34 +14,22 @@ namespace metron {
                 let nm: string = el.attribute("name");
                 let nText: string = el.attribute("data-m-text");
                 let options: any = (el.attribute("data-m-options") != null) ? metron.tools.formatOptions(el.attribute("data-m-options")) : { };
-                return new Promise((resolve, reject) => {
-                    if (rli || (binding != null && node.selectAll("option").length <= 1)) {
-                        metron.web.get(`${metron.fw.getAPIURL(binding)}${metron.web.querystringify(options)}`, {}, null, "json", function (data: Array<any>) {
-                            data.each(function (i: number, item: any) {
-                                node.append(`<option value="${item[key]}">${item[nText]}</option>`);
-                            });
-                            resolve(data);
-                        });
-                    }
-                    else {
-                        resolve();
-                    }
-                });
+                if (rli || (binding != null && node.selectAll("option").length <= 1)) {
+                    let data: Array<any> = await metron.web.get(`${metron.fw.getAPIURL(binding)}${metron.web.querystringify(options)}`, {}, null, "json");
+                    data.each(function (i: number, item: any) {
+                        node.append(`<option value="${item[key]}">${item[nText]}</option>`);
+                    });
+                }
             }
-            var promises: Array<Promise<any>> = [];
-            selects.each((indx: number, el: Element) => {
-                promises.push(populateSelects(el, reload));
+            selects.each(async (indx: number, el: Element) => {
+                await populateSelects(el, reload);
             });
-            return Promise.all(promises).then(() => {
-                if (callback != null) {
-                    callback();
-                }
-                if ((<any>self).loadSelects_m_inject != null) {
-                    (<any>self).loadSelects_m_inject();
-                }
-            }).catch((reason) => {
-                console.log("Error: Promise execution failed!");
-            });
+            if (callback != null) {
+                callback();
+            }
+            if ((<any>self).loadSelects_m_inject != null) {
+                (<any>self).loadSelects_m_inject();
+            }
         }
         public static loadActions(actions: NodeListOf<Element>): void {
             actions.each(function (indx: number, el: Element) {

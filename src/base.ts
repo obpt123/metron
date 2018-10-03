@@ -53,8 +53,9 @@ namespace metron {
             var self = this;
             metron.page.showAlerts(`[data-m-type='${self.baseType}'][data-m-model='${self.model}'] [data-m-segment='alert']`, className, txt, jsn, xml);
         }
-        public async loadSelects(selects: NodeListOf<Element>, callback?: Function, reload: boolean = false): Promise<T> {
-            return await metron.page.loadSelects(selects, callback, reload);
+        public loadSelects(selects: NodeListOf<Element>, callback?: Function, reload: boolean = false): void {
+            var self = this;
+            metron.page.loadSelects(selects, callback, reload);
         }
         public clearFilters(selector: Element): void {
             var self = this;

@@ -2,19 +2,19 @@
 
 namespace metron {
     export class forms {
-        public static bindAll(callback: Function): void {
+        public static async bindAll(callback: Function): Promise<any> {
             let sections: NodeListOf<Element> = document.selectAll("[data-m-type='form']");
             for (let i = 0; i < sections.length; i++) {
                 let section: Element = <Element>sections[i];
                 if (section.attribute("data-m-autoload") == null || section.attribute("data-m-autoload") == "true") {
                     let model: string = section.attribute("data-m-model");
-                    let mID: string = section.attribute("id");
-                    let gTypeName: string = (mID != null) ? `${mID}_${model}` : model;
+                    let id: string = section.attribute("id");
+                    let gTypeName: string = (id != null) ? `${id}_${model}` : model;
                     if (metron.globals["forms"][gTypeName] == null) {
                         let f: form<any> = new form(model);
-                        f.id = mID;
+                        f.id = id;
                         f.gTypeName = gTypeName;
-                        f.init();
+                        await f.init();
                     }
                 }
             }
@@ -56,14 +56,14 @@ namespace metron {
                 }
             }
         }
-        public init(toggle: boolean = false): form<T> {
+        public init(toggle: boolean = false): metron.form<T> {
             var self = this;
             self.hasLoaded = true;
             if (self._elem != null) {
                 self.pivot = self.attachPivot(self._elem);
                 self._name = self._elem.attribute("data-m-page");
                 let selects = self._elem.selectAll("select");
-                self.loadSelects(selects, () => {
+                self.loadSelects(selects, async () => {
                     let parameters: any;
                     let defaults: any;
                     let qs: string = <string><any>metron.web.querystring();
@@ -73,7 +73,7 @@ namespace metron {
                     if (metron.globals.firstLoad) {
                         parameters = metron.routing.getRouteUrl({"PageSize": 1, "PageIndex": 1, "_SortOrder": 1, "_SortDirection": 1}); ///This should send null values or by removed by default.
                     }
-                    self.loadForm(parameters, defaults);
+                    await self.loadForm(parameters, defaults);
                 });
                 let controlBlocks: NodeListOf<Element> = self._elem.selectAll("[data-m-segment='controls']");
                 controlBlocks.each((idx: number, elem: Element) => {
@@ -81,7 +81,7 @@ namespace metron {
                     actions.each((indx: number, el: Element) => {
                         switch (el.attribute("data-m-action").lower()) {
                             case "save":
-                                el.addEvent("click", function (e) {
+                                el.addEvent("click", async function (e) {
                                     e.preventDefault();
                                     el.attribute("disabled", "disabled");
                                     if (metron.globals.actions != null && metron.globals.actions[`${self.model.lower()}_${el.attribute("data-m-action").lower()}`] != null) { //Refactor getting the action overrides
@@ -103,20 +103,24 @@ namespace metron {
                                                 }
                                             });
                                             if (!hasPrimary) {
-                                                metron.web.post(`${metron.fw.getAPIURL(self.model)}`, parameters, null, "json", (data: T) => {
+                                                try {
+                                                    const data: T = await metron.web.post(`${metron.fw.getAPIURL(self.model)}`, parameters, null, "json");
                                                     self.save(data, <number><any>el.attribute("data-m-pivot"), el)
-                                                }, (txt, jsn, xml) => {
-                                                    self.showAlerts(metron.DANGER, txt, jsn, xml);
+                                                }
+                                                catch(e) {
+                                                    self.showAlerts(metron.DANGER, e);
                                                     el.removeAttribute("disabled");
-                                                });
+                                                }
                                             }
                                             else {
-                                                metron.web.put(`${metron.fw.getAPIURL(self.model)}`, parameters, null, "json", (data: T) => {
+                                                try {
+                                                    const data: T = await metron.web.put(`${metron.fw.getAPIURL(self.model)}`, parameters, null, "json");
                                                     self.save(data, <number><any>el.attribute("data-m-pivot"), el);
-                                                }, (txt, jsn, xml) => {
-                                                    self.showAlerts(metron.DANGER, txt, jsn, xml);
+                                                }
+                                                catch(e) {
+                                                    self.showAlerts(metron.DANGER, e);
                                                     el.removeAttribute("disabled");
-                                                });
+                                                }
                                             }
                                         }
                                         else {
@@ -181,25 +185,26 @@ namespace metron {
                 (<any>self).save_m_inject(data);
             }
         }
-        public loadForm(parameters?: any, defaults?: any): void {
-            var self = this;
-            self.clearForm();
-            if (!self._elem.isHidden() && self.shouldRoute(self.options)) {
-                metron.routing.setRouteUrl(self._name, metron.web.querystringify(parameters), true);
-            }
-            if (defaults != null) {
-                for (let prop in defaults) {
-                    if (defaults.hasOwnProperty(prop) && defaults[prop] != null && document.selectOne(`#${self.model}_${prop}`) != null) {
-                        if ((<Element>document.selectOne(`#${self.model}_${prop}`)).attribute("data-m-autocomplete") != null) {
-                            (<HTMLElement>document.selectOne(`#${self.model}_${prop}`)).val(<any>defaults[(<Element>document.selectOne(`#${self.model}_${prop}`)).attribute("data-m-display-text")]);
-                        } else {
-                            (<HTMLElement>document.selectOne(`#${self.model}_${prop}`)).val(<any>defaults[prop]);
+        public async loadForm(parameters?: any, defaults?: any): Promise<T> {
+            return new Promise<T>(async (resolve, reject) => {
+                var self = this;
+                self.clearForm();
+                if (!self._elem.isHidden() && self.shouldRoute(self.options)) {
+                    metron.routing.setRouteUrl(self._name, metron.web.querystringify(parameters), true);
+                }
+                if (defaults != null) {
+                    for (let prop in defaults) {
+                        if (defaults.hasOwnProperty(prop) && defaults[prop] != null && document.selectOne(`#${self.model}_${prop}`) != null) {
+                            if ((<Element>document.selectOne(`#${self.model}_${prop}`)).attribute("data-m-autocomplete") != null) {
+                                (<HTMLElement>document.selectOne(`#${self.model}_${prop}`)).val(<any>defaults[(<Element>document.selectOne(`#${self.model}_${prop}`)).attribute("data-m-display-text")]);
+                            } else {
+                                (<HTMLElement>document.selectOne(`#${self.model}_${prop}`)).val(<any>defaults[prop]);
+                            }
                         }
                     }
                 }
-            }
-            if (parameters != null && Object.keys(parameters).length > 0) {
-                metron.web.get(`${metron.fw.getAPIURL(self.model)}${metron.web.querystringify(parameters)}`, parameters, null, "json", function (data: T) {
+                if (parameters != null && Object.keys(parameters).length > 0) {
+                    let data: T = await metron.web.get(`${metron.fw.getAPIURL(self.model)}${metron.web.querystringify(parameters)}`, parameters, null, "json");
                     if (data instanceof Array) {
                         data = data[0];
                     }
@@ -219,11 +224,11 @@ namespace metron {
                     if ((<any>self).loadForm_m_inject != null) {
                         (<any>self).loadForm_m_inject(data);
                     }
-                });
-            }
-            else if ((<any>self).loadForm_m_inject != null) {
-                (<any>self).loadForm_m_inject(null);
-            }
+                }
+                else if ((<any>self).loadForm_m_inject != null) {
+                    (<any>self).loadForm_m_inject(null);
+                }
+            });
         }
         public clearForm(selector?: string, callback?: Function): void {
             var self = this;
